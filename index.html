@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Word Scramble</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Outfit', sans-serif; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+    @keyframes glow { 0%{box-shadow:0 0 5px #22c55e} 100%{box-shadow:0 0 20px #22c55e,0 0 40px #22c55e} }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+    @keyframes confetti-fall { to{transform:translateY(100vh) rotateZ(360deg);opacity:0} }
+    .timer-green { color:#22c55e }
+    .timer-yellow { color:#eab308; animation: pulse 1s infinite }
+    .timer-red { color:#ef4444; animation: pulse 0.6s infinite }
+    .shake { animation: shake 0.4s ease; }
+    .glow-green { animation: glow 0.6s ease forwards; }
+    .fade-in { animation: fadeIn 0.4s ease forwards; }
+    .tile { transition: all 0.15s ease; }
+    .tile:hover { transform: translateY(-3px) scale(1.05); }
+    .tile:active { transform: scale(0.95); }
+    .page { display:none; opacity:0; transition: opacity 0.3s ease; }
+    .page.active { display:flex; opacity:1; }
+    .page.paused { pointer-events: none !important; }
+    .page.paused > div:not(#pause-overlay):not(#countdown-overlay) { pointer-events: none !important; }
+    #pause-overlay, #countdown-overlay { pointer-events: auto !important; }
+    .neon-border { border: 1px solid rgba(139,92,246,0.3); box-shadow: 0 0 15px rgba(139,92,246,0.1); }
+    .btn-neon { background: linear-gradient(135deg, #7c3aed, #6d28d9); box-shadow: 0 4px 15px rgba(124,58,237,0.3); }
+    .btn-neon:hover { box-shadow: 0 4px 25px rgba(124,58,237,0.5); transform: translateY(-1px); }
+    .btn-neon:active { transform: scale(0.97); }
+  </style>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { neon: '#7c3aed', dark: { 900: '#0a0a0f', 800: '#12121a', 700: '#1a1a2e' } } } } }
+  </script>
+  <style>body { box-sizing: border-box; }</style>
+ </head>
+ <body class="h-full bg-dark-900 text-white overflow-hi">
+  <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1000;"></canvas>
+  <div id="app" class="h-full w-full flex flex-col"><!-- HOME PAGE -->
+   <div id="page-home" class="page active flex-col items-center justify-center min-h-full p-6">
+    <div class="w-full max-w-sm mx-auto flex flex-col items-center gap-6 fade-in">
+     <div class="text-center mb-4">
+      <h1 id="home-title" class="text-4xl font-800 bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text text-transparent">Word Scramble</h1>
+      <p id="home-subtitle" class="text-gray-400 mt-2 text-sm">Unscramble the letters!</p>
+     </div>
+     <div class="w-full neon-border rounded-2xl bg-dark-800 p-5 space-y-4">
+      <div><label class="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Difficulty</label>
+       <div class="grid grid-cols-3 gap-2"><button onclick="setDifficulty('easy')" id="diff-easy" class="diff-btn py-2 rounded-lg text-sm font-500 bg-violet-600 text-white transition-all">Easy</button> <button onclick="setDifficulty('medium')" id="diff-medium" class="diff-btn py-2 rounded-lg text-sm font-500 bg-dark-700 text-gray-300 transition-all">Medium</button> <button onclick="setDifficulty('hard')" id="diff-hard" class="diff-btn py-2 rounded-lg text-sm font-500 bg-dark-700 text-gray-300 transition-all">Hard</button>
+       </div>
+      </div>
+      <div><label class="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Category</label>
+       <div class="grid grid-cols-2 sm:grid-cols-3 gap-2"><button onclick="setCategory('general')" id="cat-general" class="cat-btn py-2 rounded-lg text-sm font-500 bg-violet-600 text-white transition-all">General</button> <button onclick="setCategory('fruits')" id="cat-fruits" class="cat-btn py-2 rounded-lg text-sm font-500 bg-dark-700 text-gray-300 transition-all">Fruits</button> <button onclick="setCategory('technology')" id="cat-technology" class="cat-btn py-2 rounded-lg text-sm font-500 bg-dark-700 text-gray-300 transition-all">Technology</button> <button onclick="setCategory('vegetables')" id="cat-vegetables" class="cat-btn py-2 rounded-lg text-sm font-500 bg-dark-700 text-gray-300 transition-all">Vegetables</button>
+       <button onclick="setCategory('animals')" id="cat-animals"
+        class="cat-btn py-2 rounded-lg text-sm font-500 bg-dark-700 text-gray-300 transition-all">
+        Animals
+      </button>
+      <button onclick="setCategory('mix')" id="cat-mix"
+        class="cat-btn py-2 rounded-lg text-sm font-500 bg-dark-700 text-gray-300 transition-all">
+        Mix
+      </button>
+      </div>
+      </div>
+     </div>
+     <div id="high-score-display" class="text-center text-gray-400 text-sm"><i data-lucide="trophy" class="inline w-4 h-4 text-yellow-400"></i> Best: <span id="home-best">0</span>
+     </div><button onclick="startGame()" class="btn-neon w-full py-4 rounded-xl text-lg font-600 text-white transition-all"> <i data-lucide="play" class="inline w-5 h-5 mr-2"></i>Play </button>
+    </div>
+   </div><!-- GAME PAGE -->
+   <div id="page-game" class="page flex-col min-h-full">
+    <div class="flex justify-between items-center p-4 bg-dark-800 border-b border-gray-800">
+     <div class="flex gap-6">
+      <div class="text-center">
+       <div class="text-xs text-gray-400">
+        Score
+       </div>
+       <div id="game-score" class="text-lg font-700 text-violet-300">
+        0
+       </div>
+      </div>
+      <div class="text-center">
+       <div class="text-xs text-gray-400">
+        Streak
+       </div>
+       <div id="game-streak" class="text-lg font-700 text-yellow-400">
+        0
+       </div>
+      </div>
+     </div>
+     <div class="text-center">
+      <div class="text-xs text-gray-400">
+       Time
+      </div>
+      <div id="game-timer" class="text-lg font-700 timer-green">
+       30
+      </div>
+     </div><button onclick="togglePause()" id="pause-btn" class="p-2 rounded-lg bg-dark-700 text-gray-300 hover:bg-dark-600 transition-all active:scale-95"> <i data-lucide="pause" class="w-5 h-5"></i> </button>
+    </div>
+    <div id="pause-overlay" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center pointer-events-auto">
+     <div class="bg-dark-800 rounded-2xl neon-border p-8 max-w-sm mx-auto space-y-6">
+      <div class="text-center">
+       <h3 class="text-2xl font-700 text-white">Game Paused</h3>
+      </div>
+      <div class="space-y-3">
+       <button onclick="startResumeCountdown()" id="resume-btn" class="btn-neon w-full py-4 rounded-xl text-lg font-600 text-white transition-all"> <i data-lucide="play" class="inline w-5 h-5 mr-2"></i>Resume </button> <button onclick="goHome()" class="w-full py-3 rounded-xl bg-dark-700 text-gray-300 font-500 transition-all hover:bg-dark-600"> <i data-lucide="home" class="inline w-4 h-4 mr-2"></i>Back to Home </button>
+      </div>
+     </div>
+    </div>
+    <div id="countdown-overlay" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center pointer-events-auto">
+     <div class="text-center">
+      <div id="countdown-text" class="text-8xl font-800 text-white animate-pulse mb-4" style="min-height:120px">
+       3
+      </div>
+      <div class="text-gray-400 text-lg">
+       Get ready!
+      </div>
+     </div>
+    </div>
+    <div class="flex-1 flex flex-col items-center justify-center p-6 gap-6">
+      <div id="category-label" class="text-sm text-violet-400 font-500"></div>
+     <div id="scrambled-tiles" class="flex flex-wrap justify-center gap-3 max-w-md"></div>
+     <div id="answer-area" class="min-h-[56px] flex flex-wrap justify-center gap-2 p-3 rounded-xl bg-dark-800 neon-border w-full max-w-sm"></div>
+     <div id="feedback-msg" class="text-sm h-5"></div>
+     <div class="flex gap-3 w-full max-w-sm"><button onclick="useHint()" class="flex-1 py-3 rounded-xl bg-dark-700 text-gray-300 text-sm font-500 transition-all hover:bg-dark-800 active:scale-95"><i data-lucide="lightbulb" class="inline w-4 h-4 mr-1"></i>Hint (<span id="hint-count">1</span>)</button> <button onclick="skipWord()" class="flex-1 py-3 rounded-xl bg-dark-700 text-gray-300 text-sm font-500 transition-all hover:bg-dark-800 active:scale-95"><i data-lucide="skip-forward" class="inline w-4 h-4 mr-1"></i>Skip</button> <button onclick="goHome()" class="flex-1 py-3 rounded-xl bg-dark-700 text-gray-300 text-sm font-500 transition-all hover:bg-dark-800 active:scale-95"><i data-lucide="home" class="inline w-4 h-4 mr-1"></i>Quit</button>
+     </div>
+    </div>
+   </div><!-- RESULT PAGE -->
+   <div id="page-result" class="page flex-col items-center justify-center min-h-full p-6">
+    <div class="w-full max-w-sm mx-auto flex flex-col items-center gap-6 fade-in">
+     <div class="text-center">
+      <div class="text-5xl mb-3">
+       🏆
+      </div>
+      <h2 class="text-2xl font-700 text-white">Game Over</h2>
+     </div>
+     <div class="w-full neon-border rounded-2xl bg-dark-800 p-5 space-y-3">
+      <div class="flex justify-between">
+       <span class="text-gray-400">Score</span><span id="result-score" class="font-600 text-violet-300">0</span>
+      </div>
+      <div class="flex justify-between">
+       <span class="text-gray-400">Best</span><span id="result-best" class="font-600 text-yellow-400">0</span>
+      </div>
+      <div class="flex justify-between">
+       <span class="text-gray-400">Words</span><span id="result-words" class="font-600">0</span>
+      </div>
+      <div class="flex justify-between">
+       <span class="text-gray-400">Best Streak</span><span id="result-streak" class="font-600 text-orange-400">0</span>
+      </div>
+     </div>
+     <div class="w-full space-y-3"><button onclick="startGame()" class="btn-neon w-full py-4 rounded-xl text-lg font-600 text-white transition-all">Play Again</button> <button onclick="goHome()" class="w-full py-3 rounded-xl bg-dark-700 text-gray-300 font-500 transition-all hover:bg-dark-800">Home</button>
+     </div>
+    </div>
+   </div>
+   <footer class="text-center text-gray-400 text-xs py-4 border-t border-gray-800">
+      Created By ~ Shankar Prasad Pyke 
+    </footer>
+  </div>
+  <script>
+    // Word lists
+    const WORDS = {
+      fruits: {
+        easy: ['apple','banana','grape','mango','peach','lemon','orange','berry','melon','guava','plum','pear','fig','kiwi','dates','lime','cherry','papaya','olive','citrus'],
+        medium: ['apricot','avocado','coconut','pineapple','pomegranate','blueberry','blackberry','cranberry','nectarine','lychee','passion','persimmon','dragon','figs','plums','guava','papaya','banana','orange','mango'],
+        hard: ['dragonfruit','pomegranate','blackberry','cranberry','blueberry','gooseberry','mulberry','rambutan','longan','jackfruit','starfruit','boysenberry','currant','soursop','elderberry','tamarind','durian','persimmon','nectarine','pineapple']
+      },
+
+      technology: {
+        easy: ['code','data','wifi','chip','byte','file','link','app','web','user','ram','cpu','usb','bot','disk','port','host','bit','ping','node'],
+        medium: ['cloud','pixel','robot','debug','cache','server','client','router','backup','script','binary','cookie','crypto','upload','download','compile','process','thread','storage','network'],
+        hard: ['database','software','hardware','internet','algorithm','encryption','security','developer','programming','automation','analytics','interface','framework','repository','application','optimization','authentication','virtualmachine','datacenter','cybersecurity']
+      },
+
+      vegetables: {
+        easy: ['onion','beans','corn','peas','beet','carrot','chili','radish','turnip','garlic','ginger','okra','yam','leek','kale','mint','basil','spinach','lettuce','celery'],
+        medium: ['tomato','potato','cabbage','broccoli','pumpkin','spinach','lettuce','cucumber','pepper','eggplant','zucchini','cauliflower','asparagus','carrot','onion','beans','peas','garlic','ginger','radish'],
+        hard: ['cauliflower','asparagus','artichoke','broccoli','cabbage','spinach','lettuce','cucumber','eggplant','zucchini','pumpkin','carrot','potato','tomato','onion','garlic','ginger','radish','turnip','pepper']
+      },
+
+      animals: {
+        easy: ['lion','bear','wolf','frog','deer','dog','cat','fox','bat','cow','goat','hen','pig','ant','bee','rat','owl','yak','eel','ape'],
+        medium: ['tiger','zebra','panda','horse','eagle','shark','whale','dolphin','falcon','otter','lemur','bison','hyena','rhino','camel','donkey','badger','beaver','panther','iguana'],
+        hard: ['elephant','kangaroo','crocodile','chimpanzee','hippopotamus','alligator','orangutan','rhinoceros','chameleon','woodpecker','grasshopper','armadillo','porcupine','hedgehog','meerkat','platypus','wolverine','jellyfish','dragonfly','butterfly']
+      },
+
+      general: {
+        easy: ['book','lamp','tree','fish','door','pen','cup','bag','hat','key','box','toy','shoe','map','fan','bell','ring','glass','plate','chair'],
+        medium: ['table','chair','phone','music','ocean','window','mirror','pillow','blanket','camera','bottle','wallet','screen','notebook','keyboard','speaker','drawer','folder','helmet','basket'],
+        hard: ['kitchen','blanket','journey','thunder','mystery','adventure','knowledge','experience','imagination','development','communication','responsibility','environment','opportunity','information','understanding','conversation','relationship','organization','achievement']
+      }
+    };
+
+    let state = { difficulty:'easy', category:'general', currentCategory: '', score:0, streak:0, maxStreak:0, wordsCorrect:0, availableHints:1, timer:30, currentWord:'', shuffled:[], answer:[], usedIndices:[], hintIndices:[], timerInterval:null, isPaused:false, isCountingDown:false };
+    let countdownId = 0;
+    let countdownInterval = null;
+    let countdownTimeout = null;
+    let isStartingCountdown = false;
+    let audioCtx = null;
+
+    const sounds = {
+      correct: new Audio('sounds/correct.mp3'),
+      wrong: new Audio('sounds/wrong.mp3'),
+      click: new Audio('sounds/click.mp3')
+    };
+
+    // Optional (recommended)
+    Object.values(sounds).forEach(s => {
+      s.volume = 0.5;
+      s.preload = "auto";
+    });
+
+    // Audio functions
+    function playCorrectSound() {
+      sounds.correct.currentTime = 0;
+      sounds.correct.play();
+    }
+
+    function playWrongSound() {
+      sounds.wrong.currentTime = 0;
+      sounds.wrong.play();
+    }
+
+    function playClick() {
+      sounds.click.currentTime = 0;
+      sounds.click.play();
+    }
+
+    // Confetti effect
+    function triggerConfetti() {
+      const canvas = document.getElementById('confetti-canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const particles = [];
+      const colors = ['#7c3aed', '#a78bfa', '#22c55e', '#eab308'];
+      for(let i=0;i<50;i++) {
+        particles.push({
+          x: Math.random()*canvas.width,
+          y: -10,
+          vx: (Math.random()-0.5)*8,
+          vy: Math.random()*4+3,
+          angle: Math.random()*360,
+          size: Math.random()*8+4,
+          color: colors[Math.floor(Math.random()*colors.length)],
+          life: 1
+        });
+      }
+      function animate() {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        particles.forEach((p,i)=>{
+          p.y+=p.vy; p.vx*=0.99; p.vy+=0.2; p.angle+=15; p.life-=0.015;
+          if(p.life<=0) particles.splice(i,1);
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.angle*Math.PI/180);
+          ctx.globalAlpha = p.life;
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+          ctx.restore();
+        });
+        if(particles.length>0) requestAnimationFrame(animate);
+      }
+      animate();
+    }
+
+    function updateTimerColor() {
+      const timer = document.getElementById('game-timer');
+      timer.className = 'text-lg font-700';
+      if(state.timer>15) timer.className += ' timer-green';
+      else if(state.timer>8) timer.className += ' timer-yellow';
+      else timer.className += ' timer-red';
+    }
+
+    function setDifficulty(d) {
+      state.difficulty = d;
+      localStorage.setItem('ws_difficulty', d);
+      document.querySelectorAll('.diff-btn').forEach(b => { b.className = 'diff-btn py-2 rounded-lg text-sm font-500 bg-dark-700 text-gray-300 transition-all'; });
+      document.getElementById('diff-'+d).className = 'diff-btn py-2 rounded-lg text-sm font-500 bg-violet-600 text-white transition-all';
+    }
+
+    function setCategory(c) {
+      state.category = c;
+      localStorage.setItem('ws_category', c);
+      document.querySelectorAll('.cat-btn').forEach(b => { b.className = 'cat-btn py-2 rounded-lg text-sm font-500 bg-dark-700 text-gray-300 transition-all'; });
+      document.getElementById('cat-'+c).className = 'cat-btn py-2 rounded-lg text-sm font-500 bg-violet-600 text-white transition-all';
+    }
+
+    function showPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-'+id).classList.add('active');
+    }
+
+function goHome() {
+  clearInterval(state.timerInterval);
+  clearInterval(countdownInterval);
+  clearTimeout(countdownTimeout);
+
+  state.isPaused = false;
+  state.isCountingDown = false;
+
+  document.getElementById('pause-overlay').classList.add('hidden');
+  document.getElementById('countdown-overlay').classList.add('hidden');
+  document.getElementById('page-game').classList.remove('paused');
+
+  // ✅ FIX START
+  const pauseBtn = document.getElementById('pause-btn');
+  pauseBtn.innerHTML = '<i data-lucide="pause" class="w-5 h-5"></i>';
+  pauseBtn.style.opacity = "1";
+  pauseBtn.disabled = false;
+  lucide.createIcons();
+  // ✅ FIX END
+
+  showPage('home');
+  updateHomeBest();
+  isStartingCountdown = false;
+}
+
+    function updateHomeBest() {
+      document.getElementById('home-best').textContent = localStorage.getItem('ws_highscore') || '0';
+    }
+
+    function shuffle(arr) {
+      let a = [...arr];
+      for(let i=a.length-1;i>0;i--){ let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]; }
+      // Ensure shuffled != original
+      if(a.join('')===arr.join('') && a.length>1) { [a[0],a[1]]=[a[1],a[0]]; }
+      return a;
+    }
+
+    function startGame() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      state.score=0; state.streak=0; state.maxStreak=0; state.wordsCorrect=0; state.availableHints=1; state.timer=60; state.isPaused=false;
+      document.getElementById('pause-overlay').classList.add('hidden');
+      showPage('game');
+      updateUI();
+      nextWord();
+      clearInterval(state.timerInterval);
+      state.timerInterval = setInterval(()=>{
+        if (!state.isPaused && !state.isCountingDown) {
+          state.timer--;
+          updateUI();
+          if(state.timer<=0) endGame();
+        }
+      },1000);
+    }
+
+    function nextWord() {
+      let words;
+
+      if (state.category === 'mix') {
+        const categories = Object.keys(WORDS);
+        const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+
+        state.currentCategory = randomCategory; // ✅ store current category
+        words = WORDS[randomCategory][state.difficulty];
+      } else {
+        state.currentCategory = state.category; // ✅ normal mode
+        words = WORDS[state.category][state.difficulty];
+      }
+      state.currentWord = words[Math.floor(Math.random()*words.length)].toUpperCase();
+
+      state.shuffled = shuffle(state.currentWord.split(''));
+      state.answer = [];
+      state.usedIndices = [];
+      state.hintIndices = [];
+
+      renderTiles();
+      document.getElementById('category-label').innerHTML =
+        `<span class="text-gray-400">Category:</span> ${state.currentCategory.toUpperCase()}`;
+        
+    }
+
+    function renderTiles() {
+      const sc = document.getElementById('scrambled-tiles');
+      sc.innerHTML = '';
+      state.shuffled.forEach((letter, i) => {
+        const used = state.usedIndices.includes(i);
+        const btn = document.createElement('button');
+        btn.className = `tile w-14 h-14 rounded-lg font-700 text-xl flex items-center justify-center ${used ? 'bg-dark-900 text-gray-700 border border-gray-800' : 'bg-dark-700 text-white border border-violet-500/30 hover:border-violet-400 hover:shadow-lg hover:shadow-violet-500/10'}`;        btn.textContent = letter;
+        if(!used) btn.onclick = () => selectTile(i);
+        sc.appendChild(btn);
+      });
+      const ans = document.getElementById('answer-area');
+      ans.innerHTML = '';
+      if(state.answer.length === 0) {
+        ans.innerHTML = '<span class="text-gray-500 text-sm self-center">Tap letters above</span>';
+      } else {
+        state.answer.forEach((item, i) => {
+          const btn = document.createElement('button');
+          const isHint = state.hintIndices.includes(item.pos);
+          btn.className = `tile w-14 h-14 rounded-lg font-700 text-xl flex items-center justify-center ${isHint ? 'bg-green-900/50 text-green-300 border border-green-500/50' : 'bg-violet-900/40 text-violet-200 border border-violet-500/40'}`;
+          btn.textContent = item.letter;
+          if(!isHint) btn.onclick = () => removeTile(i);
+          ans.appendChild(btn);
+        });
+      }
+      // Check if complete
+      if(state.answer.length === state.currentWord.length) checkAnswer();
+    }
+
+    function selectTile(i) {
+      if (state.isPaused || state.isCountingDown) return;
+      state.usedIndices.push(i);
+      state.answer.push({letter: state.shuffled[i], srcIndex: i, pos: state.answer.length});
+        renderTiles();
+        playClick();
+    }
+
+    function removeTile(i) {
+      if (state.isPaused || state.isCountingDown) return;
+      const removed = state.answer.splice(i, 1)[0];
+      state.usedIndices = state.usedIndices.filter(x => x !== removed.srcIndex);
+      // Recalculate positions
+      state.answer.forEach((a,idx) => a.pos = idx);
+      renderTiles();
+    }
+
+    function checkAnswer() {
+      const guess = state.answer.map(a=>a.letter).join('');
+      if(guess === state.currentWord) {
+        // Correct
+        playCorrectSound();
+        triggerConfetti();
+        const pts = state.currentWord.length * 10 + Math.max(0, state.timer);
+        state.score += pts;
+        state.streak++;
+        state.maxStreak = Math.max(state.maxStreak, state.streak);
+        state.wordsCorrect++;
+
+        // ✅ Give 1 hint every 4 correct words
+        if (state.wordsCorrect % 4 === 0) {
+          state.availableHints++;
+        }
+        
+        document.getElementById('answer-area').classList.add('glow-green');
+        document.getElementById('feedback-msg').innerHTML = '<span class="text-green-400">✓ Correct! +'+pts+'</span>';
+        updateUI();
+        setTimeout(()=>{
+          document.getElementById('answer-area').classList.remove('glow-green');
+
+          // ✅ clear success message
+          document.getElementById('feedback-msg').textContent = '';
+
+          nextWord();
+        }, 800);
+      } else {
+        // Wrong
+        playWrongSound();
+        state.streak = 0;
+        document.getElementById('answer-area').classList.add('shake');
+        document.getElementById('feedback-msg').innerHTML = '<span class="text-red-400">✗ Try again</span>';
+        updateUI();
+        setTimeout(()=>{
+          document.getElementById('answer-area').classList.remove('shake');
+          // Reset answer
+          state.answer = [];
+          state.usedIndices = [];
+          renderTiles();
+        }, 500);
+      }
+    }
+
+    function useHint() {
+      if (state.isPaused || state.isCountingDown) return;
+      if(state.answer.length >= state.currentWord.length) return;
+      if(state.availableHints <= 0) {
+        document.getElementById('feedback-msg').innerHTML = '<span class="text-yellow-400">Solve more words to unlock hints</span>';
+        setTimeout(() => { document.getElementById('feedback-msg').textContent = ''; }, 2000);
+        return;
+      }
+      const pos = state.hintIndices.length;
+      if(pos >= state.currentWord.length) return;
+      const correctLetter = state.currentWord[pos];
+      // Find it in shuffled that's not used
+      const idx = state.shuffled.findIndex((l,i) => l === correctLetter && !state.usedIndices.includes(i));
+      if(idx === -1) return;
+      state.usedIndices.push(idx);
+      state.answer.push({letter: correctLetter, srcIndex: idx, pos: pos});
+      state.hintIndices.push(pos);
+      state.availableHints--;
+      state.score = Math.max(0, state.score - 5);
+      updateUI();
+      renderTiles();
+    }
+
+    function skipWord() {
+      if (state.isPaused || state.isCountingDown) return;
+      state.streak = 0;
+      state.score = Math.max(0, state.score - 10);
+      updateUI();
+      nextWord();
+    }
+
+    function updateUI() {
+      document.getElementById('game-score').textContent = state.score;
+      document.getElementById('game-streak').textContent = state.streak;
+      document.getElementById('game-timer').textContent = state.timer;
+      document.getElementById('hint-count').textContent = state.availableHints;
+      updateTimerColor();
+    }
+
+function togglePause() {
+  if (state.isCountingDown) return;
+
+  if (!state.isPaused) {
+    pauseGame();
+  } else {
+    startResumeCountdown();
+  }
+}
+
+    function pauseGame() {
+      state.isPaused = true;
+      const overlay = document.getElementById('pause-overlay');
+      const pauseBtn = document.getElementById('pause-btn');
+      const gamePage = document.getElementById('page-game');
+      overlay.classList.remove('hidden');
+      gamePage.classList.add('paused');
+      pauseBtn.innerHTML = '<i data-lucide="play" class="w-5 h-5"></i>';
+      lucide.createIcons();
+    }
+
+    function resumeGame() {
+      if (!state.isPaused && !state.isCountingDown) return;
+
+      state.isPaused = false;
+      state.isCountingDown = false;
+
+      const overlay = document.getElementById('pause-overlay');
+      const pauseBtn = document.getElementById('pause-btn');
+      const gamePage = document.getElementById('page-game');
+
+      document.getElementById('pause-btn').style.opacity = "1";
+      document.getElementById('pause-btn').disabled = false;
+
+      overlay.classList.add('hidden');
+      gamePage.classList.remove('paused');
+
+      pauseBtn.innerHTML = '<i data-lucide="pause" class="w-5 h-5"></i>';
+      lucide.createIcons();
+    }
+
+function startResumeCountdown() {
+if (isStartingCountdown || state.isCountingDown || !state.isPaused) return;
+
+isStartingCountdown = true;
+  
+
+  state.isCountingDown = true;
+  
+  countdownId++;
+  const currentId = countdownId;
+
+  const gamePage = document.getElementById('page-game');
+  const pauseOverlay = document.getElementById('pause-overlay');
+  const countdownOverlay = document.getElementById('countdown-overlay');
+  const countdownText = document.getElementById('countdown-text');
+  const resumeBtn = document.getElementById('resume-btn');
+  const pauseBtn = document.getElementById('pause-btn');
+
+  // Lock UI
+  gamePage.classList.add('paused');
+  pauseOverlay.classList.add('hidden');
+  pauseBtn.style.opacity = "0.5";
+  pauseBtn.disabled = true;
+
+  resumeBtn.disabled = true;
+  resumeBtn.style.opacity = "0.5";
+
+  // ✅ FIX: Reset text before showing overlay
+  countdownText.textContent = '';
+  countdownText.className = 'text-8xl font-800 text-white animate-pulse mb-4';
+  countdownOverlay.classList.remove('hidden');
+
+  const sequence = ['3', '2', '1'];
+  let index = 0;
+
+  // Clear any previous timers
+  clearInterval(countdownInterval);
+  clearTimeout(countdownTimeout);
+
+  countdownInterval = setInterval(() => {
+    // Kill old countdown instantly
+    if (currentId !== countdownId) {
+      clearInterval(countdownInterval);
+      return;
+    }
+
+    // ✅ STOP condition FIRST (important)
+    if (index >= sequence.length) {
+      clearInterval(countdownInterval);
+
+      countdownText.textContent = 'Go!';
+      countdownText.className = 'text-8xl font-800 text-green-400 animate-pulse mb-4';
+
+      countdownTimeout = setTimeout(() => {
+        if (currentId !== countdownId) return;
+
+        countdownOverlay.classList.add('hidden');
+        resumeGame();
+
+        resumeBtn.disabled = false;
+        resumeBtn.style.opacity = "1";
+        pauseBtn.style.opacity = "1";
+        isStartingCountdown = false;
+      }, 200);
+
+      return; // ✅ prevents double "Go!"
+    }
+
+    // Normal countdown
+    countdownText.textContent = sequence[index];
+    countdownText.className = 'text-8xl font-800 text-white animate-pulse mb-4';
+    index++;
+
+  }, 600);
+}
+
+    function endGame() {
+      clearInterval(state.timerInterval);
+      const best = Math.max(state.score, parseInt(localStorage.getItem('ws_highscore')||'0'));
+      localStorage.setItem('ws_highscore', best);
+      document.getElementById('result-score').textContent = state.score;
+      document.getElementById('result-best').textContent = best;
+      document.getElementById('result-words').textContent = state.wordsCorrect;
+      document.getElementById('result-streak').textContent = state.maxStreak;
+      showPage('result');
+    }
+
+
+    // Init
+    const savedDiff = localStorage.getItem('ws_difficulty') || 'easy';
+    const savedCat = localStorage.getItem('ws_category') || 'general';
+    setDifficulty(savedDiff);
+    setCategory(savedCat);
+    updateHomeBest();
+
+    // Element SDK
+    const defaultConfig = {
+      game_title: 'Word Scramble',
+      subtitle_text: 'Unscramble the letters!',
+      background_color: '#0a0a0f',
+      surface_color: '#12121a',
+      text_color: '#e5e7eb',
+      primary_color: '#7c3aed',
+      accent_color: '#a78bfa',
+      font_family: 'Outfit'
+    };
+
+    function applyConfig(config) {
+      document.getElementById('home-title').textContent = config.game_title || defaultConfig.game_title;
+      document.getElementById('home-subtitle').textContent = config.subtitle_text || defaultConfig.subtitle_text;
+      const font = config.font_family || defaultConfig.font_family;
+      document.body.style.fontFamily = `${font}, sans-serif`;
+      document.body.style.backgroundColor = config.background_color || defaultConfig.background_color;
+    }
+
+    document.body.addEventListener('click', () => {
+      Object.values(sounds).forEach(s => {
+        s.play().then(() => {
+          s.pause();
+          s.currentTime = 0;
+        }).catch(() => {});
+      });
+    }, { once: true });
+
+    lucide.createIcons();
+  </script>
+</html>
